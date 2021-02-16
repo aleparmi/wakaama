@@ -58,6 +58,14 @@ lwm2m_object_t * get_test_object(void);
 void free_test_object(lwm2m_object_t * object);
 void display_test_object(lwm2m_object_t * objectP);
 /*
+ * object_temperature.c
+ */
+#define TEMPERATURE_OBJECT_ID 3303
+lwm2m_object_t * get_temp_object(void);
+void free_temp_object(lwm2m_object_t * object);
+void display_temp_object(lwm2m_object_t * objectP);
+uint8_t temperature_change(lwm2m_data_t * dataArray, lwm2m_object_t * objectP);
+/*
  * object_server.c
  */
 lwm2m_object_t * get_server_object(int serverId, const char* binding, int lifetime, bool storing);

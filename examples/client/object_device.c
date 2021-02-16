@@ -705,7 +705,7 @@ uint8_t device_change(lwm2m_data_t * dataArray,
 
     switch (dataArray->id)
     {
-    case RES_O_BATTERY_LEVEL:
+        case RES_O_BATTERY_LEVEL:
             {
                 int64_t value;
                 if (1 == lwm2m_data_decode_int(dataArray, &value))

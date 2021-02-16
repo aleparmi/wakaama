@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "lwm2mclient.h": "c",
+        "liblwm2m.h": "c"
+    }
+}

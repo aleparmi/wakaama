@@ -87,7 +87,7 @@
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 9
+#define OBJ_COUNT 10
 lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
@@ -160,7 +160,6 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
             {
                 lwm2m_data_encode_nstring(value, valueLength, dataP);
             }
-
             result = object->writeFunc(uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
             if (COAP_405_METHOD_NOT_ALLOWED == result)
             {
@@ -168,6 +167,9 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
                 {
                 case LWM2M_DEVICE_OBJECT_ID:
                     result = device_change(dataP, object);
+                    break;
+                case LWM2M_TEMPERATURE_OBJECT_ID:
+                    result = temperature_change(dataP, object);
                     break;
                 default:
                     break;
@@ -576,6 +578,35 @@ static void update_battery_level(lwm2m_context_t * context)
     }
 }
 
+static void update_temperature(lwm2m_context_t * context)
+{
+    static time_t next_change_time = 0;
+    time_t tv_sec;
+
+    tv_sec = lwm2m_gettime();
+    if (tv_sec < 0) return;
+
+    if (next_change_time < tv_sec)
+    {
+        char value[15];
+        int valueLength;
+        lwm2m_uri_t uri;
+        float level = rand() % 100 + 0.5;
+
+        if (0 > level) level = -level;
+        if (lwm2m_stringToUri("/3303/0/5700", 12, &uri))
+        {
+            valueLength = sprintf(value, "%f", level);
+            fprintf(stderr, "New Temperature: %f\n", level);
+            handle_value_changed(context, &uri, value, valueLength);
+        }
+        level = rand() % 20;
+        if (0 > level) level = -level;
+        //next_change_time = tv_sec + level + 10;
+        next_change_time = tv_sec + (int) level - 10;
+    }
+}
+
 static void prv_add(char * buffer,
                     void * user_data)
 {
@@ -674,6 +705,9 @@ static void prv_display_objects(char * buffer,
                 break;
             case TEST_OBJECT_ID:
                 display_test_object(object);
+                break;
+            case TEMPERATURE_OBJECT_ID:
+                display_temp_object(object);
                 break;
             }
         }
@@ -1123,6 +1157,12 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to create Access Control ACL resource for serverId: 999\r\n");
         return -1;
     }
+    objArray[9] = get_temp_object();
+    if (NULL == objArray[9])
+    {
+        fprintf(stderr, "Failed to create temperature object\r\n");
+        return -1;
+    }
     /*
      * The liblwm2m library is now initialized with the functions that will be in
      * charge of communication
@@ -1200,6 +1240,7 @@ int main(int argc, char *argv[])
         else if (batterylevelchanging)
         {
             update_battery_level(lwm2mH);
+            update_temperature(lwm2mH);
             tv.tv_sec = 5;
         }
         else
@@ -1410,6 +1451,7 @@ int main(int argc, char *argv[])
     free_object_conn_m(objArray[6]);
     free_object_conn_s(objArray[7]);
     acl_ctrl_free_object(objArray[8]);
+    free_temp_object(objArray[9]);
 
 #ifdef MEMORY_TRACE
     if (g_quit == 1)
