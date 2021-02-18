@@ -1,1 +1,0 @@
-cmd='/cygdrive/c/Users/AlessandroParmigiani/OneDrive - 1nce GmbH/Code/LwM2M/wakaama/examples/shared/tinydtls/configure;--host=cc'
