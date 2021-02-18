@@ -41,6 +41,7 @@ SET(SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/object_access_control.c
     ${CMAKE_CURRENT_LIST_DIR}/object_temperature.c
     ${CMAKE_CURRENT_LIST_DIR}/object_test.c
+    ${CMAKE_CURRENT_LIST_DIR}/object_light_control.c
     )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${WAKAAMA_SOURCES} ${COAP_SOURCES} ${DATA_SOURCES} ${SHARED_SOURCES})
