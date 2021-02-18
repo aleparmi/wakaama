@@ -24,6 +24,9 @@ add_definitions(${SHARED_DEFINITIONS} ${WAKAAMA_DEFINITIONS})
 
 include_directories (${WAKAAMA_HEADERS_DIR} ${COAP_HEADERS_DIR} ${DATA_HEADERS_DIR} ${WAKAAMA_SOURCES_DIR} ${SHARED_INCLUDE_DIRS})
 
+find_library(wiringPi_LIB wiringPi)
+target_link_libraries(Object ${wiringPi_LIB})
+
 SET(SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/lwm2mclient.c
     ${CMAKE_CURRENT_LIST_DIR}/lwm2mclient.h
