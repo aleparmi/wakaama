@@ -80,6 +80,13 @@
 #include <errno.h>
 #include <signal.h>
 
+//AT Commands libraries and constant definitions for BG96
+#include <wiringPi.h>
+#include <wiringSerial.h>
+
+#define DEVICE "/dev/ttyS0"
+#define BAUD 115200
+
 #define MAX_PACKET_SIZE 2048
 #define DEFAULT_SERVER_IPV6 "[::1]"
 #define DEFAULT_SERVER_IPV4 "127.0.0.1"
@@ -709,6 +716,9 @@ static void prv_display_objects(char * buffer,
             case TEMPERATURE_OBJECT_ID:
                 display_temp_object(object);
                 break;
+            case LWM2M_LIGHT_CONTROL_OBJECT_ID:
+                display_light_control_object(object);
+                break;
             }
         }
     }
@@ -852,6 +862,8 @@ void print_usage(void)
 #endif
     fprintf(stdout, "\r\n");
 }
+
+int fd;
 
 int main(int argc, char *argv[])
 {
@@ -1161,6 +1173,33 @@ int main(int argc, char *argv[])
     if (NULL == objArray[9])
     {
         fprintf(stderr, "Failed to create temperature object\r\n");
+        return -1;
+    }
+    objArray[10] = get_light_control_object();
+
+    fd = serialOpen(DEVICE, BAUD);
+
+    if (fd >= 0) {
+        fprintf(stdout, "Serial Port opened!\n\n");
+
+        serialPuts(fd, "ATE0\r");
+        fprintf(stdout, "ATE0\n");
+
+        delay(500) ;
+
+        while(serialDataAvail(fd)) {
+            fprintf(stdout, "%c", serialGetchar (fd));
+            fflush (stdout);
+        }
+        fprintf(stdout, "\n");
+    }
+    else {
+        fprintf(stderr, "Error in opening the COM port for the light object!\n");
+        return -1;
+    }
+    if (NULL == objArray[10])
+    {
+        fprintf(stderr, "Failed to create light control object\r\n");
         return -1;
     }
     /*
