@@ -126,7 +126,7 @@ static uint8_t prv_set_value(lwm2m_data_t * dataP,
     {
     case RES_M_ONOFF:
         if (dataP->type == LWM2M_TYPE_MULTIPLE_RESOURCE) return COAP_404_NOT_FOUND;
-        lwm2m_data_decode_bool(devDataP->light_status, dataP);
+        lwm2m_data_encode_bool(devDataP->light_status, dataP);
         return COAP_205_CONTENT;
     default:
         return COAP_404_NOT_FOUND;
@@ -260,7 +260,7 @@ static uint8_t prv_light_control_write(uint16_t instanceId,
         {
         case RES_M_ONOFF:
 
-            if (1 == lwm2m_data_decode_bool(dataArray + i, &value)
+            if (1 == lwm2m_data_decode_bool(dataArray + i, &value))
             {
                 light_control->light_status = value;
                 if(send_at_light(light_control->light_status) == 0) {
@@ -358,7 +358,9 @@ lwm2m_object_t * get_light_control_object()
         }
         else {
             fprintf(stderr, "Error in opening the COM port for the light object!\n");
-            return -1;
+            lwm2m_free(lightControlObj->instanceList);
+            lwm2m_free(lightControlObj);
+            lightControlObj = NULL;
         }
         if (NULL != lightControlObj->userData)
         {
