@@ -27,10 +27,8 @@
 
 /*
  Copyright (c) 2013, 2014 Intel Corporation
-
  Redistribution and use in source and binary forms, with or without modification,
  are permitted provided that the following conditions are met:
-
      * Redistributions of source code must retain the above copyright notice,
        this list of conditions and the following disclaimer.
      * Redistributions in binary form must reproduce the above copyright notice,
@@ -39,7 +37,6 @@
      * Neither the name of Intel Corporation nor the names of its contributors
        may be used to endorse or promote products derived from this software
        without specific prior written permission.
-
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -50,10 +47,8 @@
  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  THE POSSIBILITY OF SUCH DAMAGE.
-
  David Navarro <david.navarro@intel.com>
  Bosch Software Innovations GmbH - Please refer to git log
-
 */
 
 #include "lwm2mclient.h"
@@ -80,6 +75,13 @@
 #include <errno.h>
 #include <signal.h>
 
+//AT Commands libraries and constant definitions for BG96
+#include <wiringPi.h>
+#include <wiringSerial.h>
+
+#define DEVICE "/dev/ttyUSB2"
+#define BAUD 115200
+
 #define MAX_PACKET_SIZE 2048
 #define DEFAULT_SERVER_IPV6 "[::1]"
 #define DEFAULT_SERVER_IPV4 "127.0.0.1"
@@ -87,7 +89,7 @@
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 9
+#define OBJ_COUNT 11
 lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
@@ -160,7 +162,6 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
             {
                 lwm2m_data_encode_nstring(value, valueLength, dataP);
             }
-
             result = object->writeFunc(uri->instanceId, 1, dataP, object, LWM2M_WRITE_PARTIAL_UPDATE);
             if (COAP_405_METHOD_NOT_ALLOWED == result)
             {
@@ -168,6 +169,9 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
                 {
                 case LWM2M_DEVICE_OBJECT_ID:
                     result = device_change(dataP, object);
+                    break;
+                case TEMPERATURE_OBJECT_ID:
+                    result = temperature_change(dataP, object);
                     break;
                 default:
                     break;
@@ -576,6 +580,35 @@ static void update_battery_level(lwm2m_context_t * context)
     }
 }
 
+static void update_temperature(lwm2m_context_t * context)
+{
+    static time_t next_change_time = 0;
+    time_t tv_sec;
+
+    tv_sec = lwm2m_gettime();
+    if (tv_sec < 0) return;
+
+    if (next_change_time < tv_sec)
+    {
+        char value[15];
+        int valueLength;
+        lwm2m_uri_t uri;
+        float level = rand() % 100 + 0.5;
+
+        if (0 > level) level = -level;
+        if (lwm2m_stringToUri("/3303/0/5700", 12, &uri))
+        {
+            valueLength = sprintf(value, "%f", level);
+            fprintf(stderr, "New Temperature: %f\n", level);
+            handle_value_changed(context, &uri, value, valueLength);
+        }
+        level = rand() % 20;
+        if (0 > level) level = -level;
+        //next_change_time = tv_sec + level + 10;
+        next_change_time = tv_sec + (int) level - 10;
+    }
+}
+
 static void prv_add(char * buffer,
                     void * user_data)
 {
@@ -674,6 +707,12 @@ static void prv_display_objects(char * buffer,
                 break;
             case TEST_OBJECT_ID:
                 display_test_object(object);
+                break;
+            case TEMPERATURE_OBJECT_ID:
+                display_temp_object(object);
+                break;
+            case LIGHT_CONTROL_OBJECT_ID:
+                display_light_control_object(object);
                 break;
             }
         }
@@ -818,6 +857,8 @@ void print_usage(void)
 #endif
     fprintf(stdout, "\r\n");
 }
+
+int fd;
 
 int main(int argc, char *argv[])
 {
@@ -1123,6 +1164,39 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to create Access Control ACL resource for serverId: 999\r\n");
         return -1;
     }
+    objArray[9] = get_temp_object();
+    if (NULL == objArray[9])
+    {
+        fprintf(stderr, "Failed to create temperature object\r\n");
+        return -1;
+    }
+    objArray[10] = get_light_control_object();
+
+    fd = serialOpen(DEVICE, BAUD);
+
+    if (fd >= 0) {
+        fprintf(stdout, "Serial Port opened!\n\n");
+
+        serialPuts(fd, "ATE0\r");
+        fprintf(stdout, "ATE0\n");
+
+        delay(500) ;
+
+        while(serialDataAvail(fd)) {
+            fprintf(stdout, "%c", serialGetchar (fd));
+            fflush (stdout);
+        }
+        fprintf(stdout, "\n");
+    }
+    else {
+        fprintf(stderr, "Error in opening the COM port for the light object!\n");
+        return -1;
+    }
+    if (NULL == objArray[10])
+    {
+        fprintf(stderr, "Failed to create light control object\r\n");
+        return -1;
+    }
     /*
      * The liblwm2m library is now initialized with the functions that will be in
      * charge of communication
@@ -1200,6 +1274,7 @@ int main(int argc, char *argv[])
         else if (batterylevelchanging)
         {
             update_battery_level(lwm2mH);
+            update_temperature(lwm2mH);
             tv.tv_sec = 5;
         }
         else
@@ -1410,6 +1485,8 @@ int main(int argc, char *argv[])
     free_object_conn_m(objArray[6]);
     free_object_conn_s(objArray[7]);
     acl_ctrl_free_object(objArray[8]);
+    free_temp_object(objArray[9]);
+    free_object_light_control(objArray[10]);
 
 #ifdef MEMORY_TRACE
     if (g_quit == 1)
