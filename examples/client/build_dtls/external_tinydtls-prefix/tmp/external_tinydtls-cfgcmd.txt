@@ -1,1 +1,0 @@
-cmd='/home/pi/1NCE/LwM2M/test2/wakaama/examples/shared/tinydtls/configure;--host=cc'
